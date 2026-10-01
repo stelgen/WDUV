@@ -16,40 +16,25 @@ jobs:
     runs-on: "ubuntu-latest"
     steps:
       - uses: "actions/checkout@v4"
-      - uses: "actions/setup-go@v5"
-        with:
-          go-version: "stable"
-      - name: "build standard binaries"
+      - name: "install mingw"
+        run: "sudo apt-get update && sudo apt-get install -y binutils-mingw-w64-i686 binutils-mingw-w64-x86-64 gcc-mingw-w64-i686 gcc-mingw-w64-x86-64"
+      - name: "build + test"
         run: |
-          GOOS=windows GOARCH=386 go build -trimpath -ldflags "-s -w" -o out/vista-defender-update-386.exe .
-          GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o out/vista-defender-update-amd64.exe .
-      - name: "install Go 1.20.14"
-        run: |
-          curl -fsSL "https://go.dev/dl/go1.20.14.linux-amd64.tar.gz" -o go1.20.14.tar.gz
-          echo "ff445e48af27f93f66bd949ae060d97991c83e11289009d311f25426258f9c44  go1.20.14.tar.gz" | sha256sum -c -
-          tar xzf go1.20.14.tar.gz
-      - name: "build vista binaries"
-        run: |
-          GOOS=windows GOARCH=386 ./go/bin/go build -trimpath -ldflags "-s -w" -o out/vista-defender-update-386-vista.exe .
-          GOOS=windows GOARCH=amd64 ./go/bin/go build -trimpath -ldflags "-s -w" -o out/vista-defender-update-amd64-vista.exe .
-      - name: "patch and verify PE minimum OS version"
-        run: |
-          python3 tools/patchpe.py --set 6.0 out/vista-defender-update-386-vista.exe out/vista-defender-update-amd64-vista.exe
-          python3 tools/patchpe.py --verify 6.0 out/vista-defender-update-386-vista.exe out/vista-defender-update-amd64-vista.exe
+          mkdir -p /tmp/vdutest
+          VDU_TMP=/tmp/vdutest make test
+          make exe
+      - name: "verify PE minimum OS version"
+        run: "python3 tools/patchpe.py --verify 6.0 dist/vista-defender-update-386.exe dist/vista-defender-update-amd64.exe"
       - name: "hash"
-        run: "cd out && sha256sum vista-defender-update-386.exe vista-defender-update-amd64.exe vista-defender-update-386-vista.exe vista-defender-update-amd64-vista.exe > SHA256SUMS.txt"
+        run: "cd dist && sha256sum vista-defender-update-386.exe vista-defender-update-amd64.exe > SHA256SUMS.txt"
       - name: "create release"
         env:
           GH_TOKEN: "${{ github.token }}"
         run: |
-          set -x
-          gh --version
           gh release create "${GITHUB_REF_NAME}" \
             --title "WDUV ${GITHUB_REF_NAME}" \
-            --notes "Binaries for Windows Vista SP2/7/8 (Go 1.20.14, PE minOS 6.00) and Windows 10+ (current Go). See README for usage and caveats." \
+            --notes "Static C binaries for the built-in Windows Defender of Windows Vista (i386 + x64). PE minOS 6.00, no runtime dependencies. See README for usage and the definition-generation matrix." \
             --latest \
-            out/SHA256SUMS.txt \
-            out/vista-defender-update-386.exe \
-            out/vista-defender-update-amd64.exe \
-            out/vista-defender-update-386-vista.exe \
-            out/vista-defender-update-amd64-vista.exe
+            dist/SHA256SUMS.txt \
+            dist/vista-defender-update-386.exe \
+            dist/vista-defender-update-amd64.exe

@@ -1,146 +1,136 @@
-# WDUV — vista-defender-update
+# WDUV — vista-defender-update v2
 
 ![CI](https://github.com/stelgen/WDUV/actions/workflows/ci.yml/badge.svg)
 [![Release](https://img.shields.io/github/v/release/stelgen/WDUV)](https://github.com/stelgen/WDUV/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**An offline signature-update tool for Windows Defender on Windows Vista.**
+![WDUV logo](assets/logo.png)
 
-Windows Vista reached end of support in 2017, and its built-in Windows Defender
-stopped receiving definition updates the moment Microsoft's infrastructure
-moved on. The classic update endpoint, however, is still alive:
-[`https://go.microsoft.com/fwlink/?LinkID=121721`](https://go.microsoft.com/fwlink/?LinkID=121721)
-redirects to the current *Microsoft Antimalware* signature package
-(`mpam-fe.exe`). WDUV downloads that package, unpacks it, applies the engine
-and antispyware definition files to Defender's directories, patches the
-registry and restarts the service — with a full backup, rollback and dry-run
-support.
+**Fresh file signatures for the built-in Windows Defender of Windows Vista —
+without touching its engine.**
+
+The built-in Windows Defender of Windows Vista (app `1.1.1600.0`) kept
+receiving engine and definition updates through Windows Update until the OS
+went out of support. A fully updated installation carries engine
+`1.1.17020.2` — and, notably, it happily runs definition generations far
+newer than its engine build (a stock system shows `Definition Version
+1.315.1121.0`, a mid-2020 generation). WDUV v2 exploits exactly that:
+
+1. it downloads the **freshest definition package that has a chance to load**
+   on the local engine (ranked ladder, see `sources`),
+2. unpacks it **in pure C** (PE → `.rsrc` → CAB → stored/LZX folders — no
+   external tools),
+3. applies **only the antispyware signature files** (`mpasbase.vdm`,
+   `mpasdlta.vdm`) the way Vista itself does — a fresh
+   `Definition Updates\{GUID}` folder plus a registry pointer flip,
+4. starts the service and **watches it**: if the engine rejects the new
+   definitions, everything is rolled back automatically and the next-older
+   source is tried.
+
+The engine binary is **never replaced** in default mode. There is no Go, no
+.NET, no runtime dependencies — a single ~170 KB static executable whose PE
+header is natively stamped `minOS 6.00` by the linker.
 
 > [!WARNING]
-> This tool replaces antivirus engine files with content downloaded from
-> Microsoft over TLS. Run it only if you understand what it does, keep the
-> backup it creates, and prefer `apply -local` when you have already vetted
-> the files yourself.
+> The tool swaps antivirus signature databases on a 2006-era product. Every
+> apply is preceded by a full backup and is reversible with one command, but
+> you are experimenting with an unsupported configuration — which is exactly
+> what the health-checked ladder is for.
 
-## What it does
+## The definition-generation matrix (measured, 01.10.2026)
+
+| source | package engine | mpas generation | notes |
+|---|---|---|---|
+| `current` (fwlink 121721) | 1.1.26080.3 | **1.459.497.0** | today's Win11-era package; 10 engine-years newer than Vista's |
+| `vista-x86-2019` (archive.org) | 1.2.1009.0 | 1.305.416.0 | frozen package tagged *for Windows Vista x86* |
+| `win7-x86-2018` (archive.org) | 1.2.1009.0 | 1.283.1902.0 | Windows 7 era |
+| `xp-2016` (archive.org) | 1.2.1003.0 | 1.225.2438.0 | April 2016 |
+
+Your engine already runs generation **1.315** — proof that the vdm format of
+its era tolerated (much) newer generations than the engine build. Whether
+generation 459 still parses on `1.1.17020.2` is the experiment `update`
+performs safely: try → health-check → auto-rollback → fall through the ladder.
+
+**Why not convert the 2026 definitions into the 2015 format?** Both formats
+are undocumented MMPC containers (each vdm is a PE shell whose `.rsrc` holds
+the engine's signature database). A converter would mean reverse-engineering
+two proprietary database formats *and* their integrity model, and the 2016
+engine has no code for the record types ten years of scan technology added.
+That is a research project, not a tool — the honest substitute is the
+era-aware ladder above.
+
+## Usage
 
 ```
-update     download → extract → stop service → backup → apply → registry → start
-apply      same, from a pre-extracted local directory
-download   just fetch the package (read-only)
-status     show installed files, registry version, service state, last backup
-backup     write a timestamped copy of the current signature files
-rollback   restore the last backup (restores files, removes created ones,
-           restores the registry values)
+vdu status                       local engine/definition versions + registry state
+vdu sources                      the pinned source ladder
+vdu fetch <name> [-out dir]      download + unpack a package (run on a modern PC;
+                                 TLS 1.2 required — Vista's schannel usually
+                                 cannot reach modern CDNs directly)
+vdu update [-source name]        download → apply → health-check → auto-rollback
+                                 → next source on failure
+vdu apply -package <pkg|dir>     apply extracted signatures (signatures-only)
+vdu backup                       back up the current definition set
+vdu rollback                     restore the last backup
+vdu verify <name|file>           SHA-256 + structure + version report
 ```
 
-Flags: `-dry-run` (preview without touching the system), `-local <dir>`,
-`-out <file>`.
+Flags: `-dry-run`, `-force` (skip the engine-family gate), `-no-health`.
+Carry a `fetch`ed folder to the Vista box on a USB stick and `apply -package`
+it there — that is the recommended offline flow.
 
-The registry values written are `HKLM\SOFTWARE\Microsoft\Windows Defender\Signatures`
-→ `Antivirus` / `AntiSpyware` (default `1.269.1752.0`, override with the
-`VDU_SIG_VERSION` environment variable). The WinDefend service is stopped
-before files are copied (it locks them) and started afterwards; on any failure
-the service is always started again.
+## What "apply" actually does (Vista's own model)
 
-## How the package is unpacked
+1. reads the current pointers `HKLM\SOFTWARE\Microsoft\Windows Defender\Signatures`
+   → `Antivirus` / `AntiSpyware` (they name the active `Definition Updates\{GUID}`
+   folder),
+2. stops `WinDefend` (it locks the files),
+3. copies the current `{GUID}` set into `...\vdu-backup\<timestamp>\` +
+   writes `manifest.json`,
+4. creates `Definition Updates\{new GUID}\` with the new `mpasbase.vdm` /
+   `mpasdlta.vdm`,
+5. flips both registry values to the new GUID,
+6. starts the service and watches it for 5 seconds; on failure → automatic
+   rollback (pointers + files restored, failed folder removed).
 
-Microsoft's signature packages are small PE executables whose `.rsrc` section
-carries one huge CAB archive. The CAB holds three folders:
-
-| folder | compression | contents |
-|---|---|---|
-| 0 | **LZX**, 2 MiB window | `mpengine.dll`, `MpSigStub.exe` |
-| 1 | stored | `mpasbase.vdm` |
-| 2 | stored | `mpasdlta.vdm`, `mpavbase.vdm`, `mpavdlta.vdm` |
-
-WDUV parses the PE, locates the CAB and unpacks it **in pure Go**: a faithful
-port of libmspack's LZX decompressor (see `lzx.go`, `docs/ANALYSIS.md`), an
-MSZIP decoder and the stored-codec plumbing — no external binaries required.
-Extracted output is validated against `cabextract` on a real 221 MB package
-(see *Testing*).
-
-Only the antispyware set is applied (`mpengine.dll`, `MpSigStub.exe`,
-`mpasbase.vdm`, `mpasdlta.vdm`); the `mpav*` files belong to Security
-Essentials-style antivirus products and are extracted but skipped.
-
-## Compatibility notes (read this before using on Vista)
-
-- **Use the `vista` binaries from Releases for Vista/7/8.** They are built
-  with Go 1.20.14 — the last toolchain line that still targets legacy Windows —
-  and their PE minimum-OS field is patched to 6.00 (`tools/patchpe.py`).
-  Mainline Go (1.21+) officially requires Windows 10 and stamps
-  `MajorOperatingSystemVersion = 10.0`; such executables are rejected by the
-  Vista loader outright.
-- The `vista` build expects an SSE2-capable CPU (any Pentium 4/Athlon 64 or
-  later) and enough free memory for a ~220 MB in-package scan; apply copies
-  write ~150 MB to `ProgramData`.
-- Whether the *current* package's engine (1.1.26xx) runs on Vista is beyond
-  what this tool can promise — Microsoft stopped publishing Vista-compatible
-  engines years ago. For a controlled, known-good update use
-  `apply -local <dir>` with a package or files you have verified yourself.
-- Nothing here defeats Defender's own integrity model: the same files could be
-  copied by hand. The tool automates the boring, error-prone part.
-
-## Building
+## Build & test
 
 ```bash
-# standard build (Windows 10+, current Go)
-GOOS=windows GOARCH=386   go build -trimpath -ldflags "-s -w" -o vdu-386.exe .
-GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o vdu-amd64.exe .
-
-# legacy build for Vista (Go 1.20.14 + PE header patch)
-curl -fsSL https://go.dev/dl/go1.20.14.linux-amd64.tar.gz | tar xz
-GOOS=windows GOARCH=386   ./go/bin/go build -trimpath -ldflags "-s -w" -o vdu-386.exe .
-GOOS=windows GOARCH=amd64 ./go/bin/go build -trimpath -ldflags "-s -w" -o vdu-amd64.exe .
-python3 tools/patchpe.py --set 6.0 vdu-386.exe vdu-amd64.exe
-python3 tools/patchpe.py --verify 6.0 vdu-386.exe vdu-amd64.exe
+make test      # 13-test suite: bit reader, canonical Huffman, pre-tree runs,
+               # literal/E8/uncompressed LZX streams, CAB stored round-trips,
+               # PE wrapper, versioninfo parser, apply/rollback e2e
+make exe       # mingw cross-build, i386 + amd64, minOS 6.00 baked in
 ```
 
-The committed `.syso` resources embed the icon and version info into every
-Windows build automatically (`tools/versioninfo.rc`, regenerate with
-`windres` if you change them; `tools/icon.py` regenerates `assets/`).
-
-## Testing
+Optional integration check against the real packages (kept out of CI — the
+fixtures are hundreds of MB):
 
 ```bash
-go test ./...                                   # unit tests (any OS)
-VDU_TEST_MPAM=/path/to/mpam-fe.exe go test -run TestRealPackageExtraction -v
+VDU_TEST_MPAM=mpam-fe.exe \
+VDU_TEST_VISTA=mpam-fe_vista_x86.exe \
+VDU_TEST_WIN7=mpam-fe-w7x86.exe \
+make test        # verifies every extracted file byte-for-byte vs cabextract
 ```
-
-The unit suite covers the bit reader, canonical Huffman table building, LZX
-pre-tree length decoding (including 17/18/19 runs), handcrafted literal-only
-and uncompressed-block streams, E8/E9 translation, CAB layout, PE resource
-location, backup/apply/rollback orchestration and download handling — all
-platform-independent thanks to a hook-based split of the Windows-only
-facilities (`vista_windows.go`).
-
-`TestRealPackageExtraction` (opt-in) runs the full pipeline on a real
-Microsoft package and pins SHA-256 hashes of all six embedded files against a
-`cabextract`-derived reference.
 
 ## Project layout
 
 ```
-main.go            commands, orchestration, backup/apply/rollback, download
-pe.go              PE parsing + CAB (MSCF) locator
-cab.go             CAB header/folder/file tables, folder stream, split writer
-mszip.go           MSZIP (per-block deflate) decoder
-lzx.go             LZX decoder (Go port of libmspack lzxd.c, LGPL-2.1)
-vista_windows.go   registry + WinDefend service hooks (real implementation)
-*_test.go          unit + integration tests
-tools/             patchpe.py (PE min-version), icon.py, versioninfo.rc
-assets/            logo.ico / logo.png (Vista-style quadrant shield)
-docs/ANALYSIS.md   anatomy of the real package + design notes
+src/main.c            CLI
+src/apply.c           backup / GUID-flip apply / rollback / health check
+src/cab.c, src/lzx.c  CAB + LZX extractors (lzx.c = port of libmspack, LGPL-2.1)
+src/pe.c              PE parsing, CAB locator, VS_VERSIONINFO reader
+src/platform_win.c    registry / service / WinHTTP / GUID (real Windows layer)
+src/platform_stub.c   portable stubs — the full pipeline is tested on Linux
+tools/                patchpe.py (minOS verify), icon.py, versioninfo.rc
+docs/ANALYSIS.md      measured package matrix + format notes (RU)
 ```
 
 ## License
 
-MIT — except `lzx.go`, which is a port of
-[libmspack](https://github.com/kyz/libmspack)'s `lzxd.c` and therefore
-LGPL-2.1 (its header states the provenance).
+MIT — except `src/lzx.c`, a port of
+[libmspack](https://github.com/kyz/libmspack)'s `lzxd.c` (LGPL-2.1).
 
 ---
 
-*Проект также документирован на русском в `docs/ANALYSIS.md`. WDUV = Windows
-Defender Update (Vista).*
+*WDUV = Windows Defender Update (Vista). v1 (Go prototype) lives in the
+`v1.0.0` tag; v2 is the C rewrite with the engine-preserving model.*
