@@ -9,6 +9,10 @@
 #include "pe.h"
 #include "platform.h"
 #include "sha256.h"
+
+#ifdef _WIN32
+#include "gui.h"
+#endif
 #include "util.h"
 
 #include <stdlib.h>
@@ -351,6 +355,9 @@ int main(int argc, char **argv) {
     if (argc < 2) { usage(); return 0; }
     const char *cmd = argv[1];
 
+#ifdef _WIN32
+    if (str_ieq(cmd, "gui")) return vdu_gui_run();
+#endif
     if (str_ieq(cmd, "status")) return cmd_status();
     if (str_ieq(cmd, "sources")) return cmd_sources();
     if (str_ieq(cmd, "backup")) {

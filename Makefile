@@ -9,7 +9,7 @@ CFLAGS  ?= -std=c99 -O2 -Wall -Wextra -Isrc
 LDFLAGS ?=
 
 SRCS_CORE = src/util.c src/sha256.c src/pe.c src/lzx.c src/cab.c src/apply.c
-SRCS_WIN  = src/main.c src/platform_win.c
+SRCS_WIN  = src/main.c src/gui.c src/ops.c src/status.c src/platform_win.c
 SRCS_LNX  = src/platform_stub.c
 
 all: test exe
@@ -35,11 +35,11 @@ build/rsrc_amd64.o: tools/versioninfo.rc assets/logo.ico
 
 dist/vista-defender-update-386.exe: $(SRCS_CORE) $(SRCS_WIN) build/rsrc_386.o
 	@mkdir -p dist
-	$(MINGW32) $(CFLAGS) -D_WIN32_WINNT=0x0600 -Wl,--major-os-version,6,--minor-os-version,0,--major-subsystem-version,6,--minor-subsystem-version,0 -o $@ $(SRCS_CORE) $(SRCS_WIN) build/rsrc_386.o -lwinhttp -ladvapi32 -lrpcrt4 -lshell32 -static -s
+	$(MINGW32) $(CFLAGS) -D_WIN32_WINNT=0x0600 -Wl,--major-os-version,6,--minor-os-version,0,--major-subsystem-version,6,--minor-subsystem-version,0 -o $@ $(SRCS_CORE) $(SRCS_WIN) build/rsrc_386.o -lwinhttp -ladvapi32 -lrpcrt4 -lshell32 -lcomdlg32 -lgdi32 -static -s
 
 dist/vista-defender-update-amd64.exe: $(SRCS_CORE) $(SRCS_WIN) build/rsrc_amd64.o
 	@mkdir -p dist
-	$(MINGW64) $(CFLAGS) -D_WIN32_WINNT=0x0600 -Wl,--major-os-version,6,--minor-os-version,0,--major-subsystem-version,6,--minor-subsystem-version,0 -o $@ $(SRCS_CORE) $(SRCS_WIN) build/rsrc_amd64.o -lwinhttp -ladvapi32 -lrpcrt4 -lshell32 -static -s
+	$(MINGW64) $(CFLAGS) -D_WIN32_WINNT=0x0600 -Wl,--major-os-version,6,--minor-os-version,0,--major-subsystem-version,6,--minor-subsystem-version,0 -o $@ $(SRCS_CORE) $(SRCS_WIN) build/rsrc_amd64.o -lwinhttp -ladvapi32 -lrpcrt4 -lshell32 -lcomdlg32 -lgdi32 -static -s
 
 clean:
 	rm -rf build dist

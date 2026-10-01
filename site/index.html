@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WDUV v3 — fresh file signatures for the built-in Windows Defender of Windows Vista</title>
+<meta name="description" content="Engine-preserving signature updater for Windows Vista's built-in Windows Defender. Pure C, single 170 KB static exe, CAB/LZX unpacking, health-checked apply with auto-rollback.">
+<style>
+  :root {
+    --glass: rgba(255,255,255,.08);
+    --glass-border: rgba(255,255,255,.22);
+    --text: #eaf2fb;
+    --muted: #a9bdd4;
+    --accent: #7fd0ff;
+    --green: #8fd460;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font: 16px/1.6 "Segoe UI", Tahoma, sans-serif;
+    color: var(--text);
+    background: #04070d;
+    min-height: 100vh;
+    background-image:
+      radial-gradient(1200px 700px at 15% -10%, rgba(38,92,160,.55), transparent 60%),
+      radial-gradient(900px 600px at 90% 10%, rgba(23,66,120,.5), transparent 60%),
+      radial-gradient(1000px 800px at 50% 110%, rgba(10,40,80,.65), transparent 60%),
+      linear-gradient(180deg, #060a12 0%, #05080f 100%);
+    background-attachment: fixed;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 0 22px; }
+  .glass {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 10px 40px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.12);
+  }
+  header { padding: 60px 0 34px; }
+  .hero { display: flex; gap: 36px; align-items: center; flex-wrap: wrap; }
+  .logo { width: 180px; height: 180px; filter: drop-shadow(0 14px 30px rgba(0,0,0,.55)); }
+  h1 { font-size: 42px; font-weight: 600; letter-spacing: .5px; }
+  h1 .sub { display:block; font-size: 19px; font-weight: 400; color: var(--muted); margin-top: 8px; }
+  .badges { margin-top: 14px; display:flex; gap:10px; flex-wrap:wrap; }
+  .badge { font-size: 12px; padding: 4px 10px; border-radius: 999px; border:1px solid var(--glass-border); background: var(--glass); color: var(--muted); }
+  .badge b { color: var(--text); font-weight: 600; }
+  section { margin: 26px 0; }
+  h2 { font-size: 22px; font-weight: 600; margin-bottom: 14px; color: #cfe6ff; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(280px,1fr)); gap: 16px; }
+  .card { padding: 18px 20px; }
+  .card h3 { font-size: 15.5px; color: var(--accent); margin-bottom: 6px; font-weight: 600; }
+  .card p { color: var(--muted); font-size: 14.5px; }
+  .dl { display:grid; grid-template-columns: repeat(auto-fit,minmax(300px,1fr)); gap:16px; }
+  .dl a.btn {
+    display:block; padding: 18px 20px; text-decoration: none; color: var(--text);
+    border-radius: 12px; border:1px solid var(--glass-border); background: var(--glass);
+  }
+  .dl a.btn:hover { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(127,208,255,.35), 0 8px 30px rgba(0,0,0,.5); }
+  .btn .t { font-size: 17px; font-weight: 600; display:flex; align-items:center; gap:10px; }
+  .btn .d { color: var(--muted); font-size: 13.5px; margin-top: 4px; }
+  .dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
+  .dot.g { background:#8fd460; box-shadow:0 0 8px #8fd460; }
+  pre {
+    background: rgba(0,0,0,.35); border:1px solid rgba(255,255,255,.12); border-radius: 10px;
+    padding: 14px 16px; overflow-x:auto; font: 13px/1.55 Consolas, "Courier New", monospace; color:#c9e3ff;
+  }
+  pre .c { color:#6f89a6; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid rgba(255,255,255,.09); }
+  th { color: var(--accent); font-weight: 600; }
+  td code { color: #ffe9a8; }
+  .note { color: var(--muted); font-size: 13.5px; margin-top: 10px; }
+  footer { padding: 30px 0 60px; color: var(--muted); font-size: 13px; text-align: center; }
+  a { color: var(--accent); }
+  .warn { border-left: 3px solid #ffcf5c; padding: 12px 16px; background: rgba(255,207,92,.06); border-radius: 8px; color: #ffe6a6; font-size: 14px; }
+  .ok { color: var(--green); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="hero">
+    <img class="logo" src="logo@512.png" alt="WDUV logo">
+    <div>
+      <h1>WDUV <span style="color:var(--muted);font-weight:400;">v3 — vista-defender-update</span>
+        <span class="sub">Fresh file signatures for the <b>built-in</b> Windows Defender of Windows Vista — engine untouched, health-checked, auto-rollback.</span>
+      </h1>
+      <div class="badges">
+        <span class="badge"><b>Pure C</b>, single static exe (~230 KB) + GUI</span>
+        <span class="badge"><b>PE minOS 6.00</b> baked by the linker</span>
+        <span class="badge"><b>CAB·LZX</b> unpacking in C</span>
+        <span class="badge"><b>MIT</b> / lzx.c LGPL-2.1</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="dl">
+    <a class="btn" href="https://github.com/stelgen/WDUV/releases/latest">
+      <span class="t"><span class="dot g"></span> Download v3 (i386 + x64)</span>
+      <span class="d">Static C binaries (CLI + Defender-styled GUI) for Vista SP2 · 7 · 8 · 8.1 · 10+ — no runtime dependencies</span>
+    </a>
+    <a class="btn" href="https://github.com/stelgen/WDUV">
+      <span class="t">Source & docs</span>
+      <span class="d">github.com/stelgen/WDUV — README, 13-test suite, measured package matrix</span>
+    </a>
+  </div>
+  <p class="note">A fully updated Vista carries Defender engine <code>1.1.17020.2</code> and already runs definition
+  generation <code>1.315</code> (~2020) — proof its vdm format tolerates generations years newer than the engine build.
+  v2 tries the freshest packages safely and rolls back the moment the engine disagrees.</p>
+</section>
+
+<section>
+  <div class="grid">
+    <div class="glass card"><h3>Engine-preserving</h3><p>Only <code>mpasbase.vdm</code> + <code>mpasdlta.vdm</code> are applied — exactly what the built-in Defender consumes. The engine binary is never replaced.</p></div>
+    <div class="glass card"><h3>Vista's own apply model</h3><p>New <code>Definition Updates\{GUID}</code> folder + registry pointer flip + service restart — the same dance Windows Update does natively.</p></div>
+    <div class="glass card"><h3>Health-checked ladder</h3><p>Freshest source first (today's 1.459) → older eras. Service dies after the swap? Auto-rollback and the next source is tried.</p></div>
+    <div class="glass card"><h3>Pure-C CAB·LZX</h3><p>A port of libmspack's LZX decoder unpacks engine-era packages byte-for-byte (verified against cabextract on 2016/2018/2019/2026 packages).</p></div>
+    <div class="glass card"><h3>Vista-native binary</h3><p>mingw, static CRT, PE <code>minOS 6.00</code> stamped by the linker and verified in CI. No Go/.NET/VC runtime on the target.</p></div>
+    <div class="glass card"><h3>Honest about conversion</h3><p>Transcoding 2026 definitions into the 2015 vdm format = reversing two undocumented MMPC databases. The measured matrix + safe ladder is the engineering answer.</p></div>
+  </div>
+</section>
+
+<section class="glass" style="padding:20px 22px;">
+  <h2>The GUI — mimicking the stock Windows Defender</h2>
+  <img src="screenshot-gui.png" alt="WDUV GUI" style="max-width:100%;border-radius:10px;border:1px solid rgba(255,255,255,.15);">
+  <p class="note">Same banner, same colors, same idea: press <b>Check for updates</b> and the ladder runs with health checks and auto-rollback. The CLI shares the exact same engine.</p>
+</section>
+
+<section class="glass" style="padding:20px 22px;">
+  <h2>Usage</h2>
+<pre><span class="c"># on the Vista box — what do we have?</span>
+vdu status
+
+<span class="c"># the ladder: freshest package → health-check → auto-rollback → next</span>
+vdu update -dry-run
+vdu update
+
+<span class="c"># on a modern PC (TLS 1.2): prepare a package for USB transfer</span>
+vdu fetch vista-x86-2019 -out E:\vdu
+
+<span class="c"># on the Vista box — apply a carried package</span>
+vdu apply -package E:\vdu\extracted
+
+vdu backup
+vdu rollback</pre>
+</section>
+
+<section class="glass" style="padding:20px 22px;">
+  <h2>Measured definition-generation matrix</h2>
+  <table>
+    <tr><th>Source</th><th>Package engine</th><th>mpas generation</th><th>Era</th></tr>
+    <tr><td><code>current</code> (fwlink 121721)</td><td>1.1.26080.3</td><td><span class="ok">1.459.497.0</span></td><td>2026 — today's Win11 stream</td></tr>
+    <tr><td><code>vista-x86-2019</code></td><td>1.2.1009.0</td><td>1.305.416.0</td><td>Oct 2019, tagged "for Windows Vista x86"</td></tr>
+    <tr><td><code>win7-x86-2018</code></td><td>1.2.1009.0</td><td>1.283.1902.0</td><td>Dec 2018</td></tr>
+    <tr><td><code>xp-2016</code></td><td>1.2.1003.0</td><td>1.225.2438.0</td><td>Apr 2016</td></tr>
+    <tr><td>your Vista (stock)</td><td>1.1.17020.2</td><td><span class="ok">1.315.1121.0 installed</span></td><td>~2020 — runs fine on this engine</td></tr>
+  </table>
+  <p class="note">All packages share one container (PE → .rsrc → CAB → stored/LZX folders).
+  The C extractor reproduces every file byte-for-byte (cabextract cross-check).</p>
+</section>
+
+<section>
+  <div class="warn">⚠ The tool swaps signature databases of an unsupported 2006 product. Every apply is
+  backed up and reversible (<code>vdu rollback</code>), but you are experimenting — that is what the
+  health-checked ladder is for. Microsoft's CDN requires TLS 1.2, which Vista's schannel lacks:
+  use <code>fetch</code> on a modern PC and carry the folder over.</div>
+</section>
+
+<footer>
+  WDUV — Windows Defender Update (Vista) · <a href="https://github.com/stelgen/WDUV">github.com/stelgen/WDUV</a> · MIT (<code>src/lzx.c</code> — LGPL-2.1, port of libmspack)<br>
+  Icon drawn from scratch in the Vista Defender style — not an official Microsoft asset.
+</footer>
+
+</div>
+</body>
+</html>

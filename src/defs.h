@@ -5,7 +5,7 @@
 #include <stddef.h>
 
 #define APP_NAME    "Vista Defender Updater"
-#define APP_VERSION "2.0.0"
+#define APP_VERSION "3.0.0"
 
 // Registry: HKLM\SOFTWARE\Microsoft\Windows Defender\Signatures
 // Values "Antivirus"/"AntiSpyware" (REG_SZ) name the current definition
