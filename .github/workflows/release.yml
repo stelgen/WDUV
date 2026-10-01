@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: "release-${{ github.ref }}"
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: "actions/checkout@v4"
+      - uses: "actions/setup-go@v5"
+        with:
+          go-version: "stable"
+      - name: "build standard binaries"
+        run: |
+          GOOS=windows GOARCH=386 go build -trimpath -ldflags "-s -w" -o out/vista-defender-update-386.exe .
+          GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o out/vista-defender-update-amd64.exe .
+      - name: "install Go 1.20.14"
+        run: |
+          curl -fsSL "https://go.dev/dl/go1.20.14.linux-amd64.tar.gz" -o go1.20.14.tar.gz
+          echo "ff445e48af27f93f66bd949ae060d97991c83e11289009d311f25426258f9c44  go1.20.14.tar.gz" | sha256sum -c -
+          tar xzf go1.20.14.tar.gz
+      - name: "build vista binaries"
+        run: |
+          GOOS=windows GOARCH=386 ./go/bin/go build -trimpath -ldflags "-s -w" -o out/vista/vista-defender-update-386.exe .
+          GOOS=windows GOARCH=amd64 ./go/bin/go build -trimpath -ldflags "-s -w" -o out/vista/vista-defender-update-amd64.exe .
+      - name: "patch and verify PE minimum OS version"
+        run: |
+          python3 tools/patchpe.py --set 6.0 out/vista/vista-defender-update-386.exe out/vista/vista-defender-update-amd64.exe
+          python3 tools/patchpe.py --verify 6.0 out/vista/vista-defender-update-386.exe out/vista/vista-defender-update-amd64.exe
+      - name: "flatten and hash"
+        run: |
+          cp out/vista/*.exe out/
+          cd out && sha256sum vista-defender-update-386.exe vista-defender-update-amd64.exe vista/vista-defender-update-386.exe vista/vista-defender-update-amd64.exe > SHA256SUMS.txt
+      - name: "create release"
+        env:
+          GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --title "${{ github.ref_name }}" \
+            --generate-notes \
+            out/SHA256SUMS.txt \
+            out/vista-defender-update-386.exe \
+            out/vista-defender-update-amd64.exe \
+            out/vista/vista-defender-update-386.exe \
+            out/vista/vista-defender-update-amd64.exe

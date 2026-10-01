@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+concurrency:
+  group: "ci-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  test-linux:
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: "actions/checkout@v4"
+      - uses: "actions/setup-go@v5"
+        with:
+          go-version: "stable"
+      - name: "gofmt"
+        run: "test -z \"$(gofmt -l .)\""
+      - name: "vet"
+        run: "go vet ./..."
+      - name: "test"
+        run: "go test -count=1 ./..."
+
+  test-windows:
+    runs-on: "windows-latest"
+    steps:
+      - uses: "actions/checkout@v4"
+      - uses: "actions/setup-go@v5"
+        with:
+          go-version: "stable"
+      - name: "test"
+        run: "go test -count=1 ./..."
+
+  build:
+    runs-on: "ubuntu-latest"
+    strategy:
+      matrix:
+        goarch: ["386", "amd64"]
+    steps:
+      - uses: "actions/checkout@v4"
+      - uses: "actions/setup-go@v5"
+        with:
+          go-version: "stable"
+      - name: "build"
+        run: "GOOS=windows GOARCH=${{ matrix.goarch }} go build -trimpath -ldflags \"-s -w\" -o \"vista-defender-update-${{ matrix.goarch }}.exe\" ."
+      - uses: "actions/upload-artifact@v4"
+        with:
+          name: "standard-${{ matrix.goarch }}"
+          path: "vista-defender-update-${{ matrix.goarch }}.exe"
+
+  build-vista:
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: "actions/checkout@v4"
+      - name: "install Go 1.20.14"
+        run: |
+          curl -fsSL "https://go.dev/dl/go1.20.14.linux-amd64.tar.gz" -o go1.20.14.tar.gz
+          echo "ff445e48af27f93f66bd949ae060d97991c83e11289009d311f25426258f9c44  go1.20.14.tar.gz" | sha256sum -c -
+          tar xzf go1.20.14.tar.gz
+      - name: "build legacy binaries"
+        run: |
+          GOOS=windows GOARCH=386 ./go/bin/go build -trimpath -ldflags "-s -w" -o vista/vista-defender-update-386.exe .
+          GOOS=windows GOARCH=amd64 ./go/bin/go build -trimpath -ldflags "-s -w" -o vista/vista-defender-update-amd64.exe .
+      - name: "patch PE minimum OS version"
+        run: "python3 tools/patchpe.py --set 6.0 vista/vista-defender-update-386.exe vista/vista-defender-update-amd64.exe"
+      - name: "verify PE minimum OS version"
+        run: "python3 tools/patchpe.py --verify 6.0 vista/vista-defender-update-386.exe vista/vista-defender-update-amd64.exe"
+      - uses: "actions/upload-artifact@v4"
+        with:
+          name: "vista"
+          path: "vista/"
