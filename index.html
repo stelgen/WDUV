@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WDUV — Windows Defender Signature Update Tool for Windows Vista</title>
-<meta name="description" content="Offline signature-update tool for Windows Defender on Windows Vista. Pure-Go unpacking of Microsoft's CAB/LZX signature packages, backup & rollback.">
+<title>WDUV v2 — fresh file signatures for the built-in Windows Defender of Windows Vista</title>
+<meta name="description" content="Engine-preserving signature updater for Windows Vista's built-in Windows Defender. Pure C, single 170 KB static exe, CAB/LZX unpacking, health-checked apply with auto-rollback.">
 <style>
   :root {
     --glass: rgba(255,255,255,.08);
@@ -16,7 +16,7 @@
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    font: 16px/1.6 "Segoe UI", "Segoe UI Vista", Tahoma, sans-serif;
+    font: 16px/1.6 "Segoe UI", Tahoma, sans-serif;
     color: var(--text);
     background: #04070d;
     min-height: 100vh;
@@ -35,10 +35,10 @@
     backdrop-filter: blur(10px);
     box-shadow: 0 10px 40px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.12);
   }
-  header { padding: 64px 0 36px; }
+  header { padding: 60px 0 34px; }
   .hero { display: flex; gap: 36px; align-items: center; flex-wrap: wrap; }
-  .logo { width: 190px; height: 190px; filter: drop-shadow(0 14px 30px rgba(0,0,0,.55)); }
-  h1 { font-size: 44px; font-weight: 600; letter-spacing: .5px; }
+  .logo { width: 180px; height: 180px; filter: drop-shadow(0 14px 30px rgba(0,0,0,.55)); }
+  h1 { font-size: 42px; font-weight: 600; letter-spacing: .5px; }
   h1 .sub { display:block; font-size: 19px; font-weight: 400; color: var(--muted); margin-top: 8px; }
   .badges { margin-top: 14px; display:flex; gap:10px; flex-wrap:wrap; }
   .badge { font-size: 12px; padding: 4px 10px; border-radius: 999px; border:1px solid var(--glass-border); background: var(--glass); color: var(--muted); }
@@ -58,7 +58,6 @@
   .btn .t { font-size: 17px; font-weight: 600; display:flex; align-items:center; gap:10px; }
   .btn .d { color: var(--muted); font-size: 13.5px; margin-top: 4px; }
   .dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
-  .dot.b { background:#4fa8e8; box-shadow:0 0 8px #4fa8e8; }
   .dot.g { background:#8fd460; box-shadow:0 0 8px #8fd460; }
   pre {
     background: rgba(0,0,0,.35); border:1px solid rgba(255,255,255,.12); border-radius: 10px;
@@ -73,6 +72,7 @@
   footer { padding: 30px 0 60px; color: var(--muted); font-size: 13px; text-align: center; }
   a { color: var(--accent); }
   .warn { border-left: 3px solid #ffcf5c; padding: 12px 16px; background: rgba(255,207,92,.06); border-radius: 8px; color: #ffe6a6; font-size: 14px; }
+  .ok { color: var(--green); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -82,14 +82,14 @@
   <div class="hero">
     <img class="logo" src="logo.png" alt="WDUV logo">
     <div>
-      <h1>WDUV <span style="color:var(--muted);font-weight:400;">— vista-defender-update</span>
-        <span class="sub">Signature updates for Windows Defender on Windows Vista — offline, with backup & rollback.</span>
+      <h1>WDUV <span style="color:var(--muted);font-weight:400;">v2 — vista-defender-update</span>
+        <span class="sub">Fresh file signatures for the <b>built-in</b> Windows Defender of Windows Vista — engine untouched, health-checked, auto-rollback.</span>
       </h1>
       <div class="badges">
-        <span class="badge"><b>Go</b> pure stdlib + x/sys</span>
-        <span class="badge"><b>CAB·LZX</b> decoder in Go</span>
-        <span class="badge"><b>MIT</b> / lzx.go LGPL-2.1</span>
-        <span class="badge"><b>Vista</b> SP2 · 7 · 8 · 10+</span>
+        <span class="badge"><b>Pure C</b>, single static exe (~170 KB)</span>
+        <span class="badge"><b>PE minOS 6.00</b> baked by the linker</span>
+        <span class="badge"><b>CAB·LZX</b> unpacking in C</span>
+        <span class="badge"><b>MIT</b> / lzx.c LGPL-2.1</span>
       </div>
     </div>
   </div>
@@ -98,71 +98,72 @@
 <section>
   <div class="dl">
     <a class="btn" href="https://github.com/stelgen/WDUV/releases/latest">
-      <span class="t"><span class="dot g"></span> Download — Vista build</span>
-      <span class="d">Go 1.20.14 · PE minOS 6.00 · for Windows Vista SP2 / 7 / 8 (SSE2)</span>
-    </a>
-    <a class="btn" href="https://github.com/stelgen/WDUV/releases/latest">
-      <span class="t"><span class="dot b"></span> Download — Standard build</span>
-      <span class="d">Current Go toolchain · for Windows 10 / 11 (official Go support line)</span>
+      <span class="t"><span class="dot g"></span> Download v2 (i386 + x64)</span>
+      <span class="d">Static C binaries for Vista SP2 · 7 · 8 · 8.1 · 10+ — no runtime dependencies</span>
     </a>
     <a class="btn" href="https://github.com/stelgen/WDUV">
       <span class="t">Source & docs</span>
-      <span class="d">github.com/stelgen/WDUV — README, tests, CI, analysis</span>
+      <span class="d">github.com/stelgen/WDUV — README, 13-test suite, measured package matrix</span>
     </a>
   </div>
-  <p class="note">Vista reached end of support in 2017, but Microsoft's classic signature endpoint
-  (<code>go.microsoft.com/fwlink/?LinkID=121721</code>) still serves the current Microsoft Antimalware package.
-  WDUV unpacks it in pure Go and applies it to Defender with a full safety net.</p>
+  <p class="note">A fully updated Vista carries Defender engine <code>1.1.17020.2</code> and already runs definition
+  generation <code>1.315</code> (~2020) — proof its vdm format tolerates generations years newer than the engine build.
+  v2 tries the freshest packages safely and rolls back the moment the engine disagrees.</p>
 </section>
 
 <section>
   <div class="grid">
-    <div class="glass card"><h3>Backup & rollback</h3><p>Timestamped copy of every signature file + manifest before anything is touched. <code>rollback</code> restores files, removes created ones and restores registry values.</p></div>
-    <div class="glass card"><h3>Dry-run first</h3><p><code>update -dry-run</code> walks the whole pipeline — download, extraction, per-file report — without touching the system.</p></div>
-    <div class="glass card"><h3>Service-aware</h3><p>WinDefend is stopped before files are copied (it locks them) and always started again, even after failures.</p></div>
-    <div class="glass card"><h3>Pure-Go CAB·LZX</h3><p>A faithful Go port of libmspack's LZX decompressor unpacks engine + stub from the 221&nbsp;MB package. Validated byte-for-byte against cabextract.</p></div>
-    <div class="glass card"><h3>Vista-safe binaries</h3><p>Legacy builds are made with Go 1.20.14 and patched to PE minOS 6.00 — mainline Go 1.21+ stamps 10.0 and Vista's loader rejects those outright.</p></div>
-    <div class="glass card"><h3>Honest about limits</h3><p>Microsoft stopped publishing Vista-compatible engines long ago; for a controlled update use <code>apply -local</code> with files you have vetted.</p></div>
+    <div class="glass card"><h3>Engine-preserving</h3><p>Only <code>mpasbase.vdm</code> + <code>mpasdlta.vdm</code> are applied — exactly what the built-in Defender consumes. The engine binary is never replaced.</p></div>
+    <div class="glass card"><h3>Vista's own apply model</h3><p>New <code>Definition Updates\{GUID}</code> folder + registry pointer flip + service restart — the same dance Windows Update does natively.</p></div>
+    <div class="glass card"><h3>Health-checked ladder</h3><p>Freshest source first (today's 1.459) → older eras. Service dies after the swap? Auto-rollback and the next source is tried.</p></div>
+    <div class="glass card"><h3>Pure-C CAB·LZX</h3><p>A port of libmspack's LZX decoder unpacks engine-era packages byte-for-byte (verified against cabextract on 2016/2018/2019/2026 packages).</p></div>
+    <div class="glass card"><h3>Vista-native binary</h3><p>mingw, static CRT, PE <code>minOS 6.00</code> stamped by the linker and verified in CI. No Go/.NET/VC runtime on the target.</p></div>
+    <div class="glass card"><h3>Honest about conversion</h3><p>Transcoding 2026 definitions into the 2015 vdm format = reversing two undocumented MMPC databases. The measured matrix + safe ladder is the engineering answer.</p></div>
   </div>
 </section>
 
 <section class="glass" style="padding:20px 22px;">
   <h2>Usage</h2>
-<pre><span class="c"># see what Defender has right now</span>
-vista-defender-update.exe status
+<pre><span class="c"># on the Vista box — what do we have?</span>
+vdu status
 
-<span class="c"># full pipeline: download, unpack, backup, apply, registry, service</span>
-vista-defender-update.exe update -dry-run
-vista-defender-update.exe update
+<span class="c"># the ladder: freshest package → health-check → auto-rollback → next</span>
+vdu update -dry-run
+vdu update
 
-<span class="c"># controlled apply from files you have vetted yourself</span>
-vista-defender-update.exe apply -local C:\sigs
+<span class="c"># on a modern PC (TLS 1.2): prepare a package for USB transfer</span>
+vdu fetch vista-x86-2019 -out E:\vdu
 
-vista-defender-update.exe backup
-vista-defender-update.exe rollback</pre>
+<span class="c"># on the Vista box — apply a carried package</span>
+vdu apply -package E:\vdu\extracted
+
+vdu backup
+vdu rollback</pre>
 </section>
 
 <section class="glass" style="padding:20px 22px;">
-  <h2>Package anatomy</h2>
+  <h2>Measured definition-generation matrix</h2>
   <table>
-    <tr><th>Folder</th><th>Compression</th><th>Contents</th></tr>
-    <tr><td>0</td><td>LZX, 2 MiB window</td><td><code>mpengine.dll</code>, <code>MpSigStub.exe</code></td></tr>
-    <tr><td>1</td><td>stored</td><td><code>mpasbase.vdm</code></td></tr>
-    <tr><td>2</td><td>stored</td><td><code>mpasdlta.vdm</code>, <code>mpavbase.vdm</code>, <code>mpavdlta.vdm</code></td></tr>
+    <tr><th>Source</th><th>Package engine</th><th>mpas generation</th><th>Era</th></tr>
+    <tr><td><code>current</code> (fwlink 121721)</td><td>1.1.26080.3</td><td><span class="ok">1.459.497.0</span></td><td>2026 — today's Win11 stream</td></tr>
+    <tr><td><code>vista-x86-2019</code></td><td>1.2.1009.0</td><td>1.305.416.0</td><td>Oct 2019, tagged "for Windows Vista x86"</td></tr>
+    <tr><td><code>win7-x86-2018</code></td><td>1.2.1009.0</td><td>1.283.1902.0</td><td>Dec 2018</td></tr>
+    <tr><td><code>xp-2016</code></td><td>1.2.1003.0</td><td>1.225.2438.0</td><td>Apr 2016</td></tr>
+    <tr><td>your Vista (stock)</td><td>1.1.17020.2</td><td><span class="ok">1.315.1121.0 installed</span></td><td>~2020 — runs fine on this engine</td></tr>
   </table>
-  <p class="note">The downloaded package is a small PE whose <code>.rsrc</code> section carries one large CAB archive.
-  A naive “scan for MZ / VDM magic” extractor cannot work here — the real structure is a named-file cabinet,
-  which is exactly what WDUV parses.</p>
+  <p class="note">All packages share one container (PE → .rsrc → CAB → stored/LZX folders).
+  The C extractor reproduces every file byte-for-byte (cabextract cross-check).</p>
 </section>
 
 <section>
-  <div class="warn">⚠ The tool replaces antivirus engine files with content fetched from Microsoft over TLS.
-  Run it only if you understand what it does, keep the backup it creates, and prefer <code>apply -local</code>
-  when in doubt.</div>
+  <div class="warn">⚠ The tool swaps signature databases of an unsupported 2006 product. Every apply is
+  backed up and reversible (<code>vdu rollback</code>), but you are experimenting — that is what the
+  health-checked ladder is for. Microsoft's CDN requires TLS 1.2, which Vista's schannel lacks:
+  use <code>fetch</code> on a modern PC and carry the folder over.</div>
 </section>
 
 <footer>
-  WDUV — Windows Defender Update (Vista) · <a href="https://github.com/stelgen/WDUV">github.com/stelgen/WDUV</a> · MIT license (<code>lzx.go</code> — LGPL-2.1, port of libmspack)<br>
+  WDUV — Windows Defender Update (Vista) · <a href="https://github.com/stelgen/WDUV">github.com/stelgen/WDUV</a> · MIT (<code>src/lzx.c</code> — LGPL-2.1, port of libmspack)<br>
   Icon drawn from scratch in the Vista Defender style — not an official Microsoft asset.
 </footer>
 
