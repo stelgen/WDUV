@@ -18,6 +18,7 @@ int test_versioninfo(void);
 int test_e2e_apply_rollback(void);
 int test_e2e_rollback_on_dead_service(void);
 int test_integration_real_packages(void);
+int test_source_ladder(void);
 
 int main(void) {
     struct { const char *name; int (*fn)(void); } tests[] = {
@@ -34,6 +35,7 @@ int main(void) {
         { "e2e_apply", test_e2e_apply_rollback },
         { "e2e_rollback_on_dead_service", test_e2e_rollback_on_dead_service },
         { "integration_real_packages", test_integration_real_packages },
+        { "source_ladder", test_source_ladder },
     };
     int failed = 0;
     for (size_t i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {

@@ -47,7 +47,7 @@ static DWORD WINAPI worker_thread(LPVOID param) {
     int op = (int)(intptr_t)param;
     int rc = 0;
     switch (op) {
-    case 0: rc = vdu_ops_update(NULL, 0, 0, 0, gui_log, NULL); break;
+    case 0: rc = vdu_ops_update(NULL, 0, 0, 0, 0, gui_log, NULL); break;
     case 2: rc = vdu_ops_backup(gui_log, NULL); break;
     case 3: rc = vdu_ops_rollback(gui_log, NULL); break;
     }
@@ -63,7 +63,7 @@ static DWORD WINAPI worker_thread_str(LPVOID param) {
     int rc;
     if (wi->op == 10) {
         // update with -source
-        rc = vdu_ops_update(wi->str && wi->str[0] ? wi->str : NULL, 0, 0, 0, gui_log, NULL);
+        rc = vdu_ops_update(wi->str && wi->str[0] ? wi->str : NULL, 0, 0, 0, 0, gui_log, NULL);
     } else { // 11 = apply package
         rc = vdu_ops_apply(wi->str, 0, 0, gui_log, NULL);
     }

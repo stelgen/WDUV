@@ -497,3 +497,48 @@ int test_e2e_rollback_on_dead_service(void) {
     if (bad) { fprintf(stderr, "e2e2: old files not restored\n"); return 1; }
     return 0;
 }
+
+// ---- 14. source ladder contract: freshest-first, well-formed ----
+static int mpas_gen_parse(const char *s, int out[4]) {
+    return sscanf(s, "%d.%d.%d.%d", &out[0], &out[1], &out[2], &out[3]) == 4;
+}
+static int mpas_gen_cmp(const int a[4], const int b[4]) {
+    for (int i = 0; i < 4; i++)
+        if (a[i] != b[i]) return a[i] > b[i] ? 1 : -1;
+    return 0;
+}
+int test_source_ladder(void) {
+    if (VDU_SOURCE_COUNT < 4) { fprintf(stderr, "ladder: too few sources\n"); return 1; }
+    int prev[4] = { 1 << 20, 0, 0, 0 };
+    for (size_t i = 0; i < VDU_SOURCE_COUNT; i++) {
+        const vdu_source *s = &VDU_SOURCES[i];
+        if (!s->name || !s->name[0] || !s->url || !s->url[0] ||
+            !s->engine || !s->engine[0] || !s->mpas || !s->mpas[0] || s->year < 2000) {
+            fprintf(stderr, "ladder: source %zu malformed\n", i);
+            return 1;
+        }
+        if (s->sha256 && strlen(s->sha256) != 64) {
+            fprintf(stderr, "ladder: source %zu sha256 not 64 hex chars\n", i);
+            return 1;
+        }
+        int gen[4];
+        if (!mpas_gen_parse(s->mpas, gen)) {
+            fprintf(stderr, "ladder: source %zu mpas '%s' unparsable\n", i, s->mpas);
+            return 1;
+        }
+        if (mpas_gen_cmp(gen, prev) >= 0) {
+            fprintf(stderr, "ladder: source %zu (%s) is not fresher than previous\n", i, s->name);
+            return 1;
+        }
+        memcpy(prev, gen, sizeof(prev));
+    }
+    // engine versions: 1.1.x (Defender line) or 1.2.x (MSE-era packages)
+    for (size_t i = 0; i < VDU_SOURCE_COUNT; i++) {
+        if (strncmp(VDU_SOURCES[i].engine, "1.1.", 4) != 0 &&
+            strncmp(VDU_SOURCES[i].engine, "1.2.", 4) != 0) {
+            fprintf(stderr, "ladder: source %zu unexpected engine line\n", i);
+            return 1;
+        }
+    }
+    return 0;
+}

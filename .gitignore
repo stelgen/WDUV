@@ -1,5 +1,2 @@
+build/
 dist/
-*.exe
-*.part
-mpam-fe.exe
-mpam.cab

@@ -15,8 +15,9 @@ A fully updated installation carries engine `1.1.17020.2` and happily runs
 definition generations years newer than the engine build (a stock system
 shows `Definition Version 1.315.1121.0`, a ~2020 generation). WDUV v3:
 
-1. downloads the **freshest definition package that has a chance to load**
-   on the local engine (ranked source ladder),
+1. walks the **whole ranked source ladder freshest-first** (download →
+   SHA-256 pin → extract → apply → health-check → auto-rollback → next
+   older source) until the engine accepts a generation,
 2. unpacks it **in pure C** (PE → `.rsrc` → CAB → stored/LZX folders),
 3. applies **only the antispyware signature files** (`mpasbase.vdm`,
    `mpasdlta.vdm`) the way Vista itself does — a fresh
@@ -48,6 +49,9 @@ vdu verify <name|file>           SHA-256 + structure + version report
 vdu gui                          the window above
 ```
 
+Default `update` reaches every source; `-strict` turns an engine-family
+mismatch into a refusal (see the ladder section).
+
 ## The definition-generation matrix (measured 01.10.2026)
 
 | source | package engine | mpas generation | notes |
@@ -61,6 +65,17 @@ Your engine already runs generation **1.315** — the vdm format of its era
 tolerates generations years newer than the engine build. Whether generation
 459 still parses on `1.1.17020.2` is exactly the experiment `update`
 performs safely (try → health-check → auto-rollback → next source).
+
+## The update ladder (v3.1)
+
+`update` tries all sources in order; an engine-family mismatch (a MSE-era
+1.2.x package on the built-in 1.1.x engine) is **informational**, because
+signatures-only apply never installs a package engine and the vdm
+generation scale is shared across lines (`docs/ANALYSIS.md`). The service
+health check plus automatic rollback remain the actual safety gate, so
+the default run delivers the newest generation the engine accepts.
+`-strict` restores refusal-on-mismatch. CLI and GUI share one `ops.c`
+implementation.
 
 **Why not convert the 2026 definitions into the 2015 format?** Both formats
 are undocumented MMPC databases; a converter means reverse-engineering two
@@ -112,4 +127,6 @@ Defender shield artwork (© Microsoft, extracted from Windows Vista).
 ---
 
 *WDUV = Windows Defender Update (Vista). v1 (Go) — tag `v1.0.0`; v2 (C CLI) —
-tag `v2.0.0`; v3 adds the GUI, authentic branding and the screenshot story.*
+tag `v2.0.0`; v3 adds the GUI, authentic branding and the screenshot story.
+v3.1 — the ladder no longer stalls on engine-family mismatch, CLI unified
+with the GUI ops layer, `-strict` flag added.*
